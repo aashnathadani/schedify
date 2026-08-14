@@ -202,6 +202,37 @@ def _to_schedule_out(entry: dict) -> ScheduleOut:
     )
 
 
+def _select_diverse_top(ranked_deduped: list[dict], max_results: int) -> list[dict]:
+    """
+    Picks the final `max_results` schedules to show from an already
+    score-ranked, de-duplicated list. Greedily favors whichever remaining
+    candidate reuses the fewest electives already used in a schedule
+    we've picked so far, breaking ties by score (the list's existing
+    order). An elective only gets reused across picks once every
+    remaining candidate would require reusing at least that many --
+    i.e. only when there's no other way to fill out the requested count.
+    """
+    used_elective_codes: set[str] = set()
+    selected: list[dict] = []
+    remaining = list(ranked_deduped)
+
+    while remaining and len(selected) < max_results:
+        best_idx, best_overlap = 0, None
+        for idx, entry in enumerate(remaining):
+            entry_electives = {e["code"] for e in entry["electives_chosen"]}
+            overlap = len(entry_electives & used_elective_codes)
+            if best_overlap is None or overlap < best_overlap:
+                best_idx, best_overlap = idx, overlap
+                if overlap == 0:
+                    break  # remaining is score-sorted, so this is already the best zero-overlap pick
+
+        entry = remaining.pop(best_idx)
+        selected.append(entry)
+        used_elective_codes.update(e["code"] for e in entry["electives_chosen"])
+
+    return selected
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -358,7 +389,7 @@ def get_schedules(req: ScheduleRequest):
         seen_signatures.add(signature)
         deduped.append(entry)
 
-    top = deduped[: req.max_results]
+    top = _select_diverse_top(deduped, req.max_results)
     warnings = [line for line in buf.getvalue().splitlines() if line.strip()]
 
     return ScheduleResponse(

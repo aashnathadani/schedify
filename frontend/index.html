@@ -437,6 +437,7 @@
   }
   .download-all-btn:hover, .card-download-btn:hover{border-color:var(--red); color:var(--red);}
   .card-download-btn{margin-top:16px;}
+  .card-title-row .card-download-btn{margin-top:0; margin-left:auto; flex-shrink:0;}
 
   .tabs{
     display:flex;
@@ -1341,6 +1342,12 @@ function buildCard(sched, index){
   rankInfo.textContent = "i";
   rankInfo.title = RANK_EXPLANATION;
   titleRow.appendChild(rankInfo);
+  const downloadBtn = document.createElement("button");
+  downloadBtn.type = "button";
+  downloadBtn.className = "card-download-btn";
+  downloadBtn.textContent = "Download this schedule (PDF)";
+  downloadBtn.onclick = () => downloadCardAsPDF(card, `schedify_option_${index + 1}.pdf`, downloadBtn);
+  titleRow.appendChild(downloadBtn);
   card.appendChild(titleRow);
 
   const requiredLine = document.createElement("p");
@@ -1364,13 +1371,6 @@ function buildCard(sched, index){
   creditsLine.className = "credits-line";
   creditsLine.innerHTML = `<span>Total credits</span><b>${sched.total_credits}</b>`;
   card.appendChild(creditsLine);
-
-  const downloadBtn = document.createElement("button");
-  downloadBtn.type = "button";
-  downloadBtn.className = "card-download-btn";
-  downloadBtn.textContent = "Download this schedule (PDF)";
-  downloadBtn.onclick = () => downloadCardAsPDF(card, `schedify_option_${index + 1}.pdf`, downloadBtn);
-  card.appendChild(downloadBtn);
 
   return card;
 }
