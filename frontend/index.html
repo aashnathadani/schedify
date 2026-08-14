@@ -1,0 +1,1486 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Schedify &mdash; a Cornell schedule builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,600;9..144,700&family=IBM+Plex+Mono:wght@400;500;600&family=Public+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+  :root{
+    --paper:#F6F4EE;
+    --paper-raised:#FFFFFF;
+    --ink:#1D2233;
+    --ink-soft:#565C6E;
+    --hairline:#DAD5C6;
+    --red:#B31B1B;
+    --red-deep:#8C1414;
+    --brass:#9C7A2E;
+    --brass-tint:#F1E9D3;
+    --green-avail:#E1EEE2;
+    --green-avail-hover:#CFE4D2;
+    --radius:2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Public Sans', sans-serif;
+    font-size:15px;
+    line-height:1.5;
+  }
+  ::selection{background:var(--brass-tint);}
+  a{color:var(--red);}
+
+  .shell{
+    display:grid;
+    grid-template-columns: 380px 1fr;
+    min-height:100vh;
+  }
+
+  /* ---------- Sidebar ---------- */
+  .sidebar{
+    background:var(--paper-raised);
+    border-right:1px solid var(--hairline);
+    padding:28px 26px 60px;
+    position:sticky;
+    top:0;
+    height:100vh;
+    overflow-y:auto;
+  }
+  .brand{
+    display:flex;
+    align-items:baseline;
+    gap:10px;
+    margin-bottom:4px;
+  }
+  .brand .mark{
+    width:34px;height:34px;
+    background:var(--red);
+    color:#fff;
+    display:flex;align-items:center;justify-content:center;
+    font-family:'Fraunces', serif;
+    font-weight:700;
+    font-size:19px;
+    border-radius:2px;
+    flex:none;
+  }
+  .brand h1{
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:22px;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  .brand-sub{
+    font-size:12px;
+    color:var(--ink-soft);
+    margin:0 0 26px 44px;
+    font-family:'IBM Plex Mono', monospace;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+  }
+
+  fieldset{
+    border:none;
+    padding:0;
+    margin:0 0 26px;
+  }
+  legend{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--brass);
+    padding:0 0 8px;
+    border-bottom:1px solid var(--hairline);
+    width:100%;
+    margin-bottom:12px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  label{
+    display:flex;
+    align-items:center;
+    gap:5px;
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin-bottom:4px;
+  }
+
+  /* ---------- Hover info icons ---------- */
+  .info-icon{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    width:14px;height:14px;
+    border-radius:50%;
+    border:1px solid var(--ink-soft);
+    color:var(--ink-soft);
+    font-size:10px;
+    font-family:'IBM Plex Mono', monospace;
+    cursor:help;
+    flex:none;
+    background:#fff;
+  }
+  .info-icon:hover{border-color:var(--red); color:var(--red);}
+
+  input[type=text], input[type=number], select{
+    width:100%;
+    padding:8px 9px;
+    border:1px solid var(--hairline);
+    border-radius:var(--radius);
+    background:#fff;
+    font-family:'Public Sans', sans-serif;
+    font-size:14px;
+    color:var(--ink);
+  }
+  input:focus, select:focus, button:focus-visible{
+    outline:2px solid var(--red);
+    outline-offset:1px;
+  }
+  .row{margin-bottom:12px;}
+  .row-2{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .row-help{
+    font-size:11.5px;
+    color:var(--ink-soft);
+    margin-top:4px;
+  }
+  .add-row-error{
+    font-size:11.5px;
+    color:var(--red);
+    margin-top:5px;
+    display:none;
+  }
+  .add-row-error.show{display:block;}
+
+  .chip-list{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:8px;
+  }
+  .chip{
+    display:flex;
+    align-items:center;
+    gap:6px;
+    background:var(--brass-tint);
+    border:1px solid #E4D6A8;
+    color:#5B4712;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    padding:4px 6px 4px 9px;
+    border-radius:20px;
+  }
+  .chip button{
+    background:none;border:none;cursor:pointer;
+    color:#5B4712;font-size:14px;line-height:1;padding:2px;
+  }
+  .add-row{
+    display:flex;
+    gap:6px;
+  }
+  .add-row .field-wrap{
+    position:relative;
+    flex:1;
+  }
+  .btn-add{
+    flex:none;
+    background:var(--ink);
+    color:#fff;
+    border:none;
+    border-radius:var(--radius);
+    padding:0 12px;
+    cursor:pointer;
+    font-size:13px;
+  }
+  .btn-add:hover{background:var(--red);}
+
+  /* ---------- Autocomplete dropdowns ---------- */
+  .suggest-dropdown{
+    position:absolute;
+    top:100%;
+    left:0;
+    right:0;
+    background:#fff;
+    border:1px solid var(--hairline);
+    border-top:none;
+    max-height:230px;
+    overflow-y:auto;
+    z-index:30;
+    display:none;
+    box-shadow:0 8px 16px rgba(20,15,5,0.10);
+  }
+  .suggest-dropdown.open{display:block;}
+  .suggest-item{
+    padding:8px 10px;
+    font-size:12.5px;
+    cursor:pointer;
+    border-bottom:1px solid #F1EFE7;
+  }
+  .suggest-item:hover{background:var(--brass-tint);}
+  .suggest-empty{
+    padding:8px 10px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+    font-style:italic;
+  }
+
+  .generate-btn{
+    width:100%;
+    background:var(--red);
+    color:#fff;
+    border:none;
+    padding:13px;
+    font-family:'Fraunces', serif;
+    font-weight:600;
+    font-size:16px;
+    border-radius:var(--radius);
+    cursor:pointer;
+    margin-top:6px;
+  }
+  .generate-btn:hover{background:var(--red-deep);}
+  .generate-btn:disabled{background:#C9B9B9;cursor:default;}
+
+  /* ---------- Main ---------- */
+  .main{
+    padding:36px 44px 80px;
+    max-width:1080px;
+  }
+  .main-head{
+    margin-bottom:24px;
+  }
+  .main-head h2{
+    font-family:'Fraunces', serif;
+    font-size:28px;
+    font-weight:600;
+    margin:0 0 6px;
+  }
+  .main-head p{
+    color:var(--ink-soft);
+    margin:0;
+    max-width:620px;
+  }
+
+  /* ---------- Blocked-time (when2meet-style) grid ---------- */
+  .block-card{
+    background:var(--paper-raised);
+    border:1px solid var(--hairline);
+    border-radius:3px;
+    padding:22px 24px 24px;
+    margin-bottom:32px;
+  }
+  .block-card-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:4px;
+  }
+  .block-card-head-left{
+    display:flex;
+    align-items:center;
+    gap:6px;
+  }
+  .block-card-head h3{
+    font-family:'Fraunces', serif;
+    font-size:18px;
+    font-weight:600;
+    margin:0;
+  }
+  .block-card-head button{
+    background:none;
+    border:1px solid var(--hairline);
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    padding:6px 10px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .block-card-head button:hover{border-color:var(--red); color:var(--red);}
+  .block-help{
+    font-size:12.5px;
+    color:var(--ink-soft);
+    margin:0 0 14px;
+    display:flex;
+    align-items:center;
+    gap:14px;
+    flex-wrap:wrap;
+  }
+  .legend-item{display:inline-flex; align-items:center; gap:5px;}
+  .legend-swatch{width:11px;height:11px;border-radius:2px;display:inline-block;}
+  .legend-swatch.avail{background:var(--green-avail); border:1px solid #BFDBC3;}
+  .legend-swatch.blocked{background:var(--red);}
+
+  .meet-grid-scroll{
+    overflow-x:auto;
+  }
+  .meet-grid-inner{
+    display:grid;
+    grid-template-columns: 54px repeat(7, minmax(64px, 1fr));
+    user-select:none;
+    -webkit-user-select:none;
+    min-width:600px;
+  }
+  .meet-day-head{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    text-align:center;
+    color:var(--ink-soft);
+    padding-bottom:6px;
+    border-bottom:1px solid var(--hairline);
+  }
+  .meet-corner{border-bottom:1px solid var(--hairline);}
+  .meet-time-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    color:var(--ink-soft);
+    text-align:right;
+    padding-right:8px;
+    position:relative;
+    top:-6px;
+  }
+  .meet-cell{
+    height:13px;
+    background:var(--green-avail);
+    border-bottom:1px solid #fff;
+    border-left:1px solid #fff;
+    cursor:pointer;
+    touch-action:none;
+  }
+  .meet-cell:hover{background:var(--green-avail-hover);}
+  .meet-cell.blocked{background:var(--red);}
+  .meet-cell.blocked:hover{background:var(--red-deep);}
+  .meet-cell.hour-start{border-top:1px solid var(--hairline);}
+
+  .empty-state{
+    border:1px dashed var(--hairline);
+    border-radius:4px;
+    padding:60px 30px;
+    text-align:center;
+    color:var(--ink-soft);
+  }
+  .empty-state .stamp{
+    font-family:'Fraunces', serif;
+    font-size:20px;
+    color:var(--ink);
+    margin-bottom:8px;
+  }
+
+  .warnings{
+    background:var(--brass-tint);
+    border:1px solid #E4D6A8;
+    border-radius:var(--radius);
+    padding:12px 14px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:#5B4712;
+    margin-bottom:22px;
+    white-space:pre-wrap;
+  }
+
+  .results-toolbar{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:14px;
+  }
+  .download-all-btn, .card-download-btn{
+    background:none;
+    border:1px solid var(--hairline);
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    padding:7px 13px;
+    border-radius:20px;
+    cursor:pointer;
+  }
+  .download-all-btn:hover, .card-download-btn:hover{border-color:var(--red); color:var(--red);}
+  .card-download-btn{margin-top:16px;}
+
+  .tabs{
+    display:flex;
+    gap:4px;
+    margin-bottom:22px;
+    border-bottom:1px solid var(--hairline);
+  }
+  .tabs button{
+    position:relative;
+    background:none;
+    border:none;
+    padding:10px 16px 12px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color:var(--ink-soft);
+    cursor:pointer;
+  }
+  .tabs button.active{
+    color:var(--ink);
+    font-weight:600;
+  }
+  .tabs button.active::after{
+    content:"";
+    position:absolute;
+    left:0;right:0;bottom:-1px;
+    height:2px;
+    background:var(--red);
+  }
+
+  .card{
+    background:var(--paper-raised);
+    border:1px solid var(--hairline);
+    border-radius:3px;
+    padding:26px;
+    position:relative;
+  }
+  .card-stamp{
+    position:absolute;
+    top:22px;
+    right:26px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    color:var(--brass);
+    border:1px solid var(--brass);
+    padding:4px 8px;
+    border-radius:20px;
+    transform:rotate(2deg);
+    cursor:help;
+  }
+  .card-title-row{
+    display:flex;
+    align-items:center;
+    gap:7px;
+    margin-bottom:4px;
+  }
+  .card-title{
+    font-family:'Fraunces', serif;
+    font-size:19px;
+    font-weight:600;
+    margin:0;
+  }
+  .card-sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--ink-soft);
+    margin:0 0 6px;
+  }
+  .card-sub:last-of-type{
+    margin-bottom:22px;
+  }
+
+  .grid-wrap{
+    border:1px solid var(--hairline);
+    border-radius:2px;
+    overflow:hidden;
+    margin-bottom:24px;
+  }
+  .grid-header{
+    display:grid;
+    background:var(--ink);
+  }
+  .grid-header div{
+    color:#EDEAE0;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    text-align:center;
+    padding:7px 0;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+  }
+  .grid-time-corner{
+    background:var(--ink);
+  }
+  .grid-body{
+    display:grid;
+    position:relative;
+    background:#fff;
+  }
+  .grid-time-col{
+    position:relative;
+  }
+  .grid-time-label{
+    position:absolute;
+    right:8px;
+    transform:translateY(-6px);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10px;
+    color:var(--ink-soft);
+  }
+  .grid-col{
+    border-left:1px solid var(--hairline);
+    position:relative;
+  }
+  .hour-line{
+    position:absolute;
+    left:0;right:0;
+    border-top:1px solid #EEEBE1;
+  }
+  .grid-block{
+    position:absolute;
+    left:3px;right:3px;
+    border-radius:2px;
+    padding:5px 6px;
+    font-size:11px;
+    line-height:1.3;
+    overflow:hidden;
+    color:#fff;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .grid-block b{display:block;font-size:11.5px;font-family:'Public Sans',sans-serif;font-weight:700;}
+
+  table.sections{
+    width:100%;
+    border-collapse:collapse;
+    font-size:13px;
+  }
+  table.sections th{
+    text-align:left;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--ink-soft);
+    border-bottom:1px solid var(--hairline);
+    padding:6px 8px;
+  }
+  table.sections td{
+    padding:8px;
+    border-bottom:1px solid #F1EFE7;
+    vertical-align:top;
+  }
+  table.sections td.code{font-weight:600;}
+  table.sections td.mono{font-family:'IBM Plex Mono', monospace; font-size:12px; color:var(--ink-soft);}
+
+  .credits-line{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    margin-top:16px;
+    padding-top:14px;
+    border-top:1px solid var(--hairline);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color:var(--ink-soft);
+  }
+  .credits-line b{color:var(--ink); font-family:'Fraunces', serif; font-size:16px;}
+
+  .loading{
+    text-align:center;
+    padding:70px 0;
+    color:var(--ink-soft);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+  }
+
+  @media (max-width:880px){
+    .shell{grid-template-columns:1fr;}
+    .sidebar{position:static;height:auto;}
+  }
+</style>
+</head>
+<body>
+
+<div class="shell">
+  <aside class="sidebar">
+    <div class="brand"><div class="mark">S</div><h1>Schedify</h1></div>
+    <p class="brand-sub">Conflict-free schedule builder</p>
+
+    <form id="form">
+
+      <fieldset>
+        <legend>Term</legend>
+        <div class="row">
+          <label for="roster">Roster
+            <span class="info-icon" title="Cornell's code for the term you're planning. FA26 = Fall 2026, SP26 = Spring 2026, WI26 = Winter 2026, SU26 = Summer 2026.">i</span>
+          </label>
+          <input type="text" id="roster" value="FA26" />
+        </div>
+        <div class="row">
+          <label for="career">Restrict electives to
+            <span class="info-icon" title="Filters courses that get added automatically -- requirement categories and the fill-in-credits fallback pool -- by academic level. Courses you type in yourself under Required are never filtered by this.">i</span>
+          </label>
+          <select id="career">
+            <option value="UG" selected>Undergrad only</option>
+            <option value="GR">Grad only</option>
+            <option value="">No filter (all careers)</option>
+          </select>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>
+          Required courses
+          <span class="info-icon" title="Courses that must appear in every schedule Schedify builds, e.g. CS 2110. Start typing and pick from the suggestions to make sure you're selecting a real course.">i</span>
+        </legend>
+        <div class="chip-list" id="required-chips"></div>
+        <div class="add-row">
+          <div class="field-wrap">
+            <input type="text" id="required-input" placeholder="e.g. CS 2110" autocomplete="off" />
+            <div class="suggest-dropdown" id="required-suggest"></div>
+          </div>
+          <button type="button" class="btn-add" id="add-required">Add</button>
+        </div>
+        <div class="add-row-error" id="required-add-error"></div>
+        <div class="row-help">Add any specific classes you definitely want in your schedule -- these are guaranteed to be included.</div>
+      </fieldset>
+
+      <fieldset>
+        <legend>
+          Requirement categories
+          <span class="info-icon" title="Cornell distribution/requirement codes (e.g. CA-AG for Cultural Analysis) you still need covered. Schedify will pick a course satisfying each one you add.">i</span>
+        </legend>
+        <div class="chip-list" id="group-chips"></div>
+        <div class="add-row">
+          <div class="field-wrap" style="flex:2;">
+            <input type="text" id="group-code-input" placeholder="e.g. CA-AG" autocomplete="off" />
+            <div class="suggest-dropdown" id="group-suggest"></div>
+          </div>
+          <input type="number" id="group-num-input" placeholder="need" min="1" value="1" style="flex:1;" />
+          <button type="button" class="btn-add" id="add-group">Add</button>
+        </div>
+        <div class="add-row-error" id="group-add-error"></div>
+        <div class="row-help">Add any distribution/requirement categories you'd like to fulfill, and we'll find electives that work with the rest of your schedule.</div>
+        <div class="row-help">Leave empty if you'd like and Schedify will fill remaining credits from courses it's already cached.</div>
+        <div class="row-help" id="group-autocomplete-note">Loading category suggestions\u2026</div>
+      </fieldset>
+
+      <fieldset>
+        <legend>
+          Credits
+          <span class="info-icon" title="The total credit range your finished schedule should land in, added up across required courses and electives together.">i</span>
+        </legend>
+        <div class="row-2">
+          <div>
+            <label for="min-credits">Min</label>
+            <input type="number" id="min-credits" value="12" />
+          </div>
+          <div>
+            <label for="max-credits">Max</label>
+            <input type="number" id="max-credits" value="18" />
+          </div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>
+          Buffer between classes
+          <span class="info-icon" title="Minimum minutes required between two back-to-back classes -- e.g. time to walk across campus. Back-to-back sections with too little gap are treated as a conflict.">i</span>
+        </legend>
+        <div class="row">
+          <label for="buffer">Minutes</label>
+          <input type="number" id="buffer" value="15" />
+        </div>
+      </fieldset>
+
+      <button type="submit" class="generate-btn" id="generate-btn">Generate schedules</button>
+    </form>
+  </aside>
+
+  <main class="main">
+    <div class="main-head">
+      <h2>Your best-fit schedules</h2>
+      <p>Set your requirements on the left, block off times you don't want classes below, then hit Generate. Schedify ranks every conflict-free option it finds and shows you the best ones.</p>
+    </div>
+
+    <div class="block-card">
+      <div class="block-card-head">
+        <div class="block-card-head-left">
+          <h3>Blocked times</h3>
+          <span class="info-icon" title="Any time across the week you don't want a class scheduled, whole or partial days. A hard rule -- no generated schedule will place a class inside a blocked window.">i</span>
+        </div>
+        <button type="button" id="clear-blocks">Clear all</button>
+      </div>
+      <p class="block-help">
+        Click and drag across the grid to block off times &mdash; drag over a blocked time again to open it back up.
+        <span class="legend-item"><span class="legend-swatch avail"></span>open</span>
+        <span class="legend-item"><span class="legend-swatch blocked"></span>blocked</span>
+      </p>
+      <div class="meet-grid-scroll">
+        <div class="meet-grid-inner" id="meet-grid"></div>
+      </div>
+    </div>
+
+    <div id="results">
+      <div class="empty-state">
+        <div class="stamp">No schedules generated yet</div>
+        <div>Add at least one required course or requirement category, then hit Generate.</div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
+const DAY_COLORS = ["#B31B1B","#1D4E89","#2F6B4F","#9C7A2E","#6A4C93","#00838F","#8C1414"];
+const RANK_EXPLANATION = "Ranked by how compact the schedule is: less dead time between back-to-back classes, and fewer scattered days across the week, score better. Every conflict-free schedule Schedify finds is included -- this just orders them best option first.";
+
+let requiredCourses = [];
+let requirementGroups = [];
+
+let subjectsCache = null;           // [{value, descr}, ...]
+let courseCacheBySubject = {};      // {"CS": [{code, catalog_nbr, title}, ...]}
+let distributionsCache = null;      // [{value, descr}, ...] or null
+let distributionsAvailable = null;  // true / false / null (not loaded yet)
+
+function currentRoster(){
+  return document.getElementById("roster").value.trim() || "FA26";
+}
+
+// ---------- Load autocomplete data ----------
+async function loadSubjects(){
+  try {
+    const resp = await fetch(`/api/subjects?roster=${encodeURIComponent(currentRoster())}`);
+    if (resp.ok) { const data = await resp.json(); subjectsCache = data.subjects; }
+  } catch (e) { /* autocomplete just won't offer subject suggestions */ }
+}
+
+async function loadDistributions(){
+  const note = document.getElementById("group-autocomplete-note");
+  try {
+    const resp = await fetch(`/api/distributions?roster=${encodeURIComponent(currentRoster())}`);
+    if (resp.ok) {
+      const data = await resp.json();
+      distributionsAvailable = data.available;
+      distributionsCache = data.distributions;
+      if (note) note.textContent = data.note || `${data.distributions.length} known category codes loaded for suggestions.`;
+    }
+  } catch (e) {
+    distributionsAvailable = false;
+    if (note) note.textContent = "Couldn't load category suggestions right now -- you can still type a code directly; it's checked for real when you hit Add.";
+  }
+}
+
+async function fetchCoursesInSubject(subject){
+  try {
+    const resp = await fetch(`/api/courses-in-subject/${subject}?roster=${encodeURIComponent(currentRoster())}`);
+    if (!resp.ok) return [];
+    const data = await resp.json();
+    return data.courses;
+  } catch (e) { return []; }
+}
+
+document.getElementById("roster").addEventListener("change", () => {
+  subjectsCache = null;
+  courseCacheBySubject = {};
+  distributionsCache = null;
+  distributionsAvailable = null;
+  loadSubjects();
+  loadDistributions();
+});
+
+// ---------- Generic suggestion dropdown helpers ----------
+function renderSuggestions(container, items, emptyMessage){
+  container.innerHTML = "";
+  if (!items.length){
+    if (emptyMessage){
+      const div = document.createElement("div");
+      div.className = "suggest-empty";
+      div.textContent = emptyMessage;
+      container.appendChild(div);
+      container.classList.add("open");
+    } else {
+      container.classList.remove("open");
+    }
+    return;
+  }
+  items.forEach(item => {
+    const div = document.createElement("div");
+    div.className = "suggest-item";
+    div.textContent = item.label;
+    div.onmousedown = (e) => { e.preventDefault(); item.onClick(); };
+    container.appendChild(div);
+  });
+  container.classList.add("open");
+}
+function closeSuggest(container){ container.classList.remove("open"); container.innerHTML = ""; }
+
+// ---------- Required course chips ----------
+function renderRequiredChips(){
+  const wrap = document.getElementById("required-chips");
+  wrap.innerHTML = "";
+  requiredCourses.forEach((code, i) => {
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.innerHTML = `${code} <button type="button" data-i="${i}">&times;</button>`;
+    chip.querySelector("button").onclick = () => { requiredCourses.splice(i,1); renderRequiredChips(); };
+    wrap.appendChild(chip);
+  });
+}
+document.getElementById("add-required").onclick = async () => {
+  const input = document.getElementById("required-input");
+  const errorEl = document.getElementById("required-add-error");
+  const addBtn = document.getElementById("add-required");
+  errorEl.classList.remove("show");
+
+  const raw = input.value.trim();
+  if (!raw) return;
+
+  const {subject, number} = splitSubjectAndNumber(raw);
+  if (!subject || !number) {
+    errorEl.textContent = "Enter both a subject and a catalog number, e.g. CS 2110.";
+    errorEl.classList.add("show");
+    return;
+  }
+  const code = `${subject} ${number}`;
+  if (requiredCourses.includes(code)) { input.value = ""; closeSuggest(document.getElementById("required-suggest")); return; }
+
+  addBtn.disabled = true; addBtn.textContent = "Checking\u2026";
+  try {
+    const resp = await fetch(`/api/course/${subject}/${number}?roster=${encodeURIComponent(currentRoster())}`);
+    if (!resp.ok) {
+      errorEl.textContent = `${code} wasn't found in ${currentRoster()} \u2014 double check it, or pick a suggestion as you type.`;
+      errorEl.classList.add("show");
+      return;
+    }
+    requiredCourses.push(code);
+    renderRequiredChips();
+    input.value = "";
+    closeSuggest(document.getElementById("required-suggest"));
+  } catch (e) {
+    errorEl.textContent = "Couldn't verify that course right now -- it'll still be checked when you generate schedules.";
+    errorEl.classList.add("show");
+  } finally {
+    addBtn.disabled = false; addBtn.textContent = "Add";
+  }
+};
+document.getElementById("required-input").addEventListener("keydown", e => {
+  if (e.key === "Enter") { e.preventDefault(); document.getElementById("add-required").click(); }
+  if (e.key === "Escape") { closeSuggest(document.getElementById("required-suggest")); }
+});
+
+// Splits a partially-typed required course into a matched subject code
+// (if one's recognizable yet) and whatever's left (the catalog number so far).
+function splitSubjectAndNumber(raw){
+  const compact = raw.toUpperCase().replace(/\s+/g, "");
+  if (!subjectsCache) return {subject: null, number: compact};
+  let best = null;
+  for (const s of subjectsCache){
+    if (compact.startsWith(s.value) && (!best || s.value.length > best.value.length)){
+      const rest = compact.slice(s.value.length);
+      if (rest === "" || /^[0-9]/.test(rest)) best = s;
+    }
+  }
+  if (best) return {subject: best.value, number: compact.slice(best.value.length)};
+  return {subject: null, number: compact};
+}
+
+const requiredInput = document.getElementById("required-input");
+const requiredSuggest = document.getElementById("required-suggest");
+
+requiredInput.addEventListener("input", async () => {
+  const raw = requiredInput.value;
+  if (!raw.trim()) { closeSuggest(requiredSuggest); return; }
+
+  const {subject, number} = splitSubjectAndNumber(raw);
+
+  if (!subject){
+    if (!subjectsCache) { closeSuggest(requiredSuggest); return; }
+    const prefix = raw.trim().toUpperCase();
+    const matches = subjectsCache.filter(s => s.value.startsWith(prefix)).slice(0, 8);
+    renderSuggestions(requiredSuggest, matches.map(s => ({
+      label: `${s.value} \u2014 ${s.descr}`,
+      onClick: () => { requiredInput.value = `${s.value} `; requiredInput.dispatchEvent(new Event("input")); requiredInput.focus(); }
+    })), matches.length ? null : "Not found — keep typing, or hit Add to check directly");
+    return;
+  }
+
+  if (!courseCacheBySubject[subject]){
+    renderSuggestions(requiredSuggest, [], "Loading courses\u2026");
+    courseCacheBySubject[subject] = await fetchCoursesInSubject(subject);
+  }
+
+  const courses = courseCacheBySubject[subject] || [];
+  const matches = courses.filter(c => c.catalog_nbr.startsWith(number)).slice(0, 8);
+  renderSuggestions(requiredSuggest, matches.map(c => ({
+    label: `${c.code} \u2014 ${c.title}`,
+    onClick: () => {
+      if (!requiredCourses.includes(c.code)) { requiredCourses.push(c.code); renderRequiredChips(); }
+      requiredInput.value = "";
+      closeSuggest(requiredSuggest);
+    }
+  })), matches.length ? null : `No ${subject} courses match "${number}" yet.`);
+});
+requiredInput.addEventListener("focus", () => { if (requiredInput.value.trim()) requiredInput.dispatchEvent(new Event("input")); });
+requiredInput.addEventListener("blur", () => setTimeout(() => closeSuggest(requiredSuggest), 150));
+
+// ---------- Requirement group chips ----------
+function renderGroupChips(){
+  const wrap = document.getElementById("group-chips");
+  wrap.innerHTML = "";
+  requirementGroups.forEach((g, i) => {
+    const chip = document.createElement("div");
+    chip.className = "chip";
+    chip.innerHTML = `${g.code} &times;${g.num_needed} <button type="button" data-i="${i}">&times;</button>`;
+    chip.querySelector("button").onclick = () => { requirementGroups.splice(i,1); renderGroupChips(); };
+    wrap.appendChild(chip);
+  });
+}
+document.getElementById("add-group").onclick = async () => {
+  const codeInput = document.getElementById("group-code-input");
+  const numInput = document.getElementById("group-num-input");
+  const errorEl = document.getElementById("group-add-error");
+  const addBtn = document.getElementById("add-group");
+  errorEl.classList.remove("show");
+
+  const code = codeInput.value.trim().toUpperCase();
+  const num = parseInt(numInput.value) || 1;
+  if (!code) return;
+
+  addBtn.disabled = true; addBtn.textContent = "Checking\u2026";
+  try {
+    const resp = await fetch(`/api/distribution/${encodeURIComponent(code)}?roster=${encodeURIComponent(currentRoster())}`);
+    if (!resp.ok) throw new Error("lookup failed");
+    const data = await resp.json();
+    if (data.count === 0) {
+      errorEl.textContent = `No courses found for "${code}" in ${currentRoster()} \u2014 double check the code.`;
+      errorEl.classList.add("show");
+      return;
+    }
+    requirementGroups.push({code, num_needed: num});
+    codeInput.value = ""; numInput.value = 1;
+    renderGroupChips();
+    closeSuggest(document.getElementById("group-suggest"));
+  } catch (e) {
+    errorEl.textContent = "Couldn't verify that code right now.";
+    errorEl.classList.add("show");
+  } finally {
+    addBtn.disabled = false; addBtn.textContent = "Add";
+  }
+};
+
+const groupCodeInput = document.getElementById("group-code-input");
+const groupSuggest = document.getElementById("group-suggest");
+
+groupCodeInput.addEventListener("input", () => {
+  const raw = groupCodeInput.value.trim().toUpperCase();
+  if (!raw || !distributionsAvailable || !distributionsCache) { closeSuggest(groupSuggest); return; }
+  const matches = distributionsCache.filter(d =>
+    (d.value || "").toUpperCase().startsWith(raw) || (d.descr || "").toUpperCase().includes(raw)
+  ).slice(0, 8);
+  renderSuggestions(groupSuggest, matches.map(d => ({
+    label: `${d.value} \u2014 ${d.descr}`,
+    onClick: () => { groupCodeInput.value = d.value; closeSuggest(groupSuggest); }
+  })), matches.length ? null : "No matching categories.");
+});
+groupCodeInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); document.getElementById("add-group").click(); } });
+groupCodeInput.addEventListener("blur", () => setTimeout(() => closeSuggest(groupSuggest), 150));
+
+loadSubjects();
+loadDistributions();
+
+// ---------- Blocked-time grid (when2meet-style click & drag) ----------
+const GRID_START_MIN = 7 * 60;   // 7:00 AM
+const GRID_END_MIN = 24 * 60;    // 12:00 AM (midnight)
+const SLOT_MIN = 30;
+const NUM_SLOTS = (GRID_END_MIN - GRID_START_MIN) / SLOT_MIN;
+
+let blockedCells = new Set(); // keys like "Mon-4"
+let isDragging = false;
+let dragPaintsBlocked = true;
+
+function cellKey(day, slot){ return `${day}-${slot}`; }
+
+function slotToLabel(slotIndex){
+  const totalMin = GRID_START_MIN + slotIndex * SLOT_MIN;
+  const h24 = Math.floor(totalMin / 60);
+  const m = totalMin % 60;
+  const period = h24 >= 12 ? "PM" : "AM";
+  let h12 = h24 % 12; if (h12 === 0) h12 = 12;
+  return `${h12}:${m.toString().padStart(2, "0")}${period}`;
+}
+
+function setCellState(el, day, slot, blocked){
+  const key = cellKey(day, slot);
+  if (blocked) { blockedCells.add(key); el.classList.add("blocked"); }
+  else { blockedCells.delete(key); el.classList.remove("blocked"); }
+}
+
+function buildMeetGrid(){
+  const container = document.getElementById("meet-grid");
+  container.innerHTML = "";
+
+  const corner = document.createElement("div");
+  corner.className = "meet-corner";
+  container.appendChild(corner);
+  DAYS.forEach(d => {
+    const head = document.createElement("div");
+    head.className = "meet-day-head";
+    head.textContent = d;
+    container.appendChild(head);
+  });
+
+  for (let slot = 0; slot < NUM_SLOTS; slot++){
+    const label = document.createElement("div");
+    label.className = "meet-time-label";
+    label.textContent = (slot % 2 === 0) ? slotToLabel(slot) : "";
+    container.appendChild(label);
+
+    DAYS.forEach(day => {
+      const cell = document.createElement("div");
+      cell.className = "meet-cell" + (slot % 2 === 0 ? " hour-start" : "");
+      cell.dataset.day = day;
+      cell.dataset.slot = slot;
+
+      cell.addEventListener("mousedown", (e) => {
+        e.preventDefault();
+        isDragging = true;
+        dragPaintsBlocked = !blockedCells.has(cellKey(day, slot));
+        setCellState(cell, day, slot, dragPaintsBlocked);
+      });
+      cell.addEventListener("mouseenter", () => {
+        if (isDragging) setCellState(cell, day, slot, dragPaintsBlocked);
+      });
+      cell.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        isDragging = true;
+        dragPaintsBlocked = !blockedCells.has(cellKey(day, slot));
+        setCellState(cell, day, slot, dragPaintsBlocked);
+      }, {passive:false});
+
+      container.appendChild(cell);
+    });
+  }
+
+  container.addEventListener("touchmove", (e) => {
+    if (!isDragging) return;
+    e.preventDefault();
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (el && el.classList.contains("meet-cell")){
+      setCellState(el, el.dataset.day, parseInt(el.dataset.slot), dragPaintsBlocked);
+    }
+  }, {passive:false});
+}
+document.addEventListener("mouseup", () => { isDragging = false; });
+document.addEventListener("touchend", () => { isDragging = false; });
+
+document.getElementById("clear-blocks").onclick = () => {
+  blockedCells.clear();
+  document.querySelectorAll(".meet-cell.blocked").forEach(el => el.classList.remove("blocked"));
+};
+
+function computeBlockedWindows(){
+  const windows = [];
+  DAYS.forEach(day => {
+    const slots = [];
+    for (let s = 0; s < NUM_SLOTS; s++){
+      if (blockedCells.has(cellKey(day, s))) slots.push(s);
+    }
+    let runStart = null, prev = null;
+    slots.forEach(s => {
+      if (runStart === null) { runStart = s; prev = s; }
+      else if (s === prev + 1) { prev = s; }
+      else {
+        windows.push({days: [day], start: slotToLabel(runStart), end: slotToLabel(prev + 1)});
+        runStart = s; prev = s;
+      }
+    });
+    if (runStart !== null) windows.push({days: [day], start: slotToLabel(runStart), end: slotToLabel(prev + 1)});
+  });
+  return windows;
+}
+
+buildMeetGrid();
+
+// ---------- Submit ----------
+document.getElementById("form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const careerVal = document.getElementById("career").value;
+  const body = {
+    roster: currentRoster(),
+    required: requiredCourses,
+    requirement_groups: requirementGroups.map(g => ({code: g.code, num_needed: g.num_needed})),
+    blocked_windows: computeBlockedWindows(),
+    min_credits: parseFloat(document.getElementById("min-credits").value) || 0,
+    max_credits: parseFloat(document.getElementById("max-credits").value) || 24,
+    buffer_minutes: parseInt(document.getElementById("buffer").value) || 0,
+    careers: careerVal ? [careerVal] : null,
+    max_results: 5,
+  };
+
+  const btn = document.getElementById("generate-btn");
+  btn.disabled = true;
+  btn.textContent = "Generating\u2026";
+  document.getElementById("results").innerHTML = `<div class="loading">Searching for conflict-free combinations\u2026</div>`;
+
+  try {
+    const resp = await fetch("/api/schedules", {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(body),
+    });
+    if (!resp.ok) {
+      const errText = await resp.text();
+      throw new Error(errText);
+    }
+    const data = await resp.json();
+    renderResults(data);
+    document.getElementById("results").scrollIntoView({behavior: "smooth", block: "start"});
+  } catch (err) {
+    document.getElementById("results").innerHTML = `
+      <div class="empty-state">
+        <div class="stamp">Something went wrong</div>
+        <div>${String(err.message || err)}</div>
+      </div>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = "Generate schedules";
+  }
+});
+
+// ---------- Downloads (PDF, via html2canvas + jsPDF) ----------
+
+// Renders one card element into an already-open jsPDF document, adding a
+// new page first if it isn't the first thing in the doc. Splits across
+// multiple pages if the card is taller than one page.
+async function addCardToPDF(pdf, cardEl, isFirstPage){
+  const canvas = await html2canvas(cardEl, {backgroundColor: "#ffffff", scale: 2});
+  const imgData = canvas.toDataURL("image/png");
+
+  const margin = 30;
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+  const imgWidth = pageWidth - margin * 2;
+  const imgHeight = canvas.height * (imgWidth / canvas.width);
+  const pageContentHeight = pageHeight - margin * 2;
+
+  if (!isFirstPage) pdf.addPage();
+
+  if (imgHeight <= pageContentHeight){
+    pdf.addImage(imgData, "PNG", margin, margin, imgWidth, imgHeight);
+    return;
+  }
+
+  // Taller than one page: slide the same image up for each subsequent
+  // page so each page shows the next slice (jsPDF clips at page bounds).
+  let yOffset = 0;
+  let firstSlice = true;
+  while (yOffset < imgHeight){
+    if (!firstSlice) pdf.addPage();
+    pdf.addImage(imgData, "PNG", margin, margin - yOffset, imgWidth, imgHeight);
+    yOffset += pageContentHeight;
+    firstSlice = false;
+  }
+}
+
+async function downloadCardAsPDF(cardEl, filename, button){
+  const originalText = button ? button.textContent : null;
+  if (button) { button.disabled = true; button.textContent = "Building PDF\u2026"; }
+
+  const downloadBtn = cardEl.querySelector(".card-download-btn");
+  const prevVisibility = downloadBtn ? downloadBtn.style.visibility : null;
+  if (downloadBtn) downloadBtn.style.visibility = "hidden";
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation: "portrait", unit: "pt", format: "letter"});
+    await addCardToPDF(pdf, cardEl, true);
+    pdf.save(filename);
+  } finally {
+    if (downloadBtn) downloadBtn.style.visibility = prevVisibility;
+    if (button) { button.disabled = false; button.textContent = originalText; }
+  }
+}
+
+async function downloadAllAsPDF(schedules, button){
+  const originalText = button ? button.textContent : null;
+  if (button) { button.disabled = true; button.textContent = "Building PDF\u2026"; }
+
+  const hiddenHost = document.createElement("div");
+  hiddenHost.style.position = "fixed";
+  hiddenHost.style.left = "-10000px";
+  hiddenHost.style.top = "0";
+  hiddenHost.style.width = "760px";
+  document.body.appendChild(hiddenHost);
+
+  try {
+    const { jsPDF } = window.jspdf;
+    const pdf = new jsPDF({orientation: "portrait", unit: "pt", format: "letter"});
+
+    for (let i = 0; i < schedules.length; i++){
+      const card = buildCard(schedules[i], i);
+      const downloadBtn = card.querySelector(".card-download-btn");
+      if (downloadBtn) downloadBtn.remove();
+      hiddenHost.innerHTML = "";
+      hiddenHost.appendChild(card);
+      await new Promise(r => setTimeout(r, 60)); // let layout/fonts settle
+      await addCardToPDF(pdf, card, i === 0);
+    }
+
+    pdf.save("schedify_schedules.pdf");
+  } finally {
+    document.body.removeChild(hiddenHost);
+    if (button) { button.disabled = false; button.textContent = originalText; }
+  }
+}
+
+// ---------- Rendering results ----------
+function parseTimeToMinutes(str){
+  const m = str.match(/(\d{1,2}):(\d{2}) ?(AM|PM)/i);
+  if (!m) return null;
+  let h = parseInt(m[1]) % 12;
+  if (m[3].toUpperCase() === "PM") h += 12;
+  return h * 60 + parseInt(m[2]);
+}
+
+function renderResults(data){
+  const container = document.getElementById("results");
+  container.innerHTML = "";
+
+  if (!data.schedules.length){
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="stamp">No schedules found</div>
+        <div>${(data.warnings || []).join("<br/>") || "Try widening your credit range or loosening blocked times."}</div>
+      </div>`;
+    return;
+  }
+
+  if (data.warnings && data.warnings.length){
+    const w = document.createElement("div");
+    w.className = "warnings";
+    w.textContent = data.warnings.join("\n");
+    container.appendChild(w);
+  }
+
+  const toolbar = document.createElement("div");
+  toolbar.className = "results-toolbar";
+  const downloadAllBtn = document.createElement("button");
+  downloadAllBtn.type = "button";
+  downloadAllBtn.className = "download-all-btn";
+  downloadAllBtn.textContent = `Download all ${data.schedules.length} options (PDF)`;
+  downloadAllBtn.onclick = () => downloadAllAsPDF(data.schedules, downloadAllBtn);
+  toolbar.appendChild(downloadAllBtn);
+  container.appendChild(toolbar);
+
+  const tabs = document.createElement("div");
+  tabs.className = "tabs";
+  const cardHost = document.createElement("div");
+
+  data.schedules.forEach((sched, i) => {
+    const tabBtn = document.createElement("button");
+    tabBtn.type = "button";
+    tabBtn.textContent = `Option ${i + 1}`;
+    tabBtn.onclick = () => {
+      tabs.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+      tabBtn.classList.add("active");
+      cardHost.innerHTML = "";
+      cardHost.appendChild(buildCard(sched, i));
+    };
+    if (i === 0) tabBtn.classList.add("active");
+    tabs.appendChild(tabBtn);
+  });
+
+  container.appendChild(tabs);
+  container.appendChild(cardHost);
+  cardHost.appendChild(buildCard(data.schedules[0], 0));
+}
+
+function buildCard(sched, index){
+  const card = document.createElement("div");
+  card.className = "card";
+
+  const stamp = document.createElement("div");
+  stamp.className = "card-stamp";
+  stamp.textContent = index === 0 ? "Best fit" : `Rank ${index + 1}`;
+  stamp.title = RANK_EXPLANATION;
+  card.appendChild(stamp);
+
+  const titleRow = document.createElement("div");
+  titleRow.className = "card-title-row";
+  const title = document.createElement("h3");
+  title.className = "card-title";
+  title.textContent = `Option ${index + 1}`;
+  titleRow.appendChild(title);
+  const rankInfo = document.createElement("span");
+  rankInfo.className = "info-icon";
+  rankInfo.textContent = "i";
+  rankInfo.title = RANK_EXPLANATION;
+  titleRow.appendChild(rankInfo);
+  card.appendChild(titleRow);
+
+  const requiredLine = document.createElement("p");
+  requiredLine.className = "card-sub";
+  requiredLine.textContent = sched.required_courses.length
+    ? `Required: ${sched.required_courses.map(c => `${c.code} \u2014 ${c.title}`).join(", ")}`
+    : "Required: (none specified)";
+  card.appendChild(requiredLine);
+
+  const electivesLine = document.createElement("p");
+  electivesLine.className = "card-sub";
+  electivesLine.textContent = sched.electives.length
+    ? `Electives: ${sched.electives.map(e => `${e.code} \u2014 ${e.title} (${e.requirement})`).join(", ")}`
+    : "Electives: (none)";
+  card.appendChild(electivesLine);
+
+  card.appendChild(buildGrid(sched));
+  card.appendChild(buildTable(sched));
+
+  const creditsLine = document.createElement("div");
+  creditsLine.className = "credits-line";
+  creditsLine.innerHTML = `<span>Total credits</span><b>${sched.total_credits}</b>`;
+  card.appendChild(creditsLine);
+
+  const downloadBtn = document.createElement("button");
+  downloadBtn.type = "button";
+  downloadBtn.className = "card-download-btn";
+  downloadBtn.textContent = "Download this schedule (PDF)";
+  downloadBtn.onclick = () => downloadCardAsPDF(card, `schedify_option_${index + 1}.pdf`, downloadBtn);
+  card.appendChild(downloadBtn);
+
+  return card;
+}
+
+function buildGrid(sched){
+  const meetingsByDay = {};
+  let minMin = 8 * 60, maxMin = 21 * 60;
+  const courseColor = {};
+  let colorIdx = 0;
+
+  sched.options.forEach(opt => {
+    if (!(opt.course_code in courseColor)) {
+      courseColor[opt.course_code] = DAY_COLORS[colorIdx % DAY_COLORS.length];
+      colorIdx++;
+    }
+    opt.sections.forEach(sec => {
+      sec.meetings.forEach(m => {
+        if (!m.start || !m.end) return;
+        const s = parseTimeToMinutes(m.start);
+        const e = parseTimeToMinutes(m.end);
+        if (s === null || e === null) return;
+        minMin = Math.min(minMin, s);
+        maxMin = Math.max(maxMin, e);
+        m.days.forEach(d => {
+          if (!meetingsByDay[d]) meetingsByDay[d] = [];
+          meetingsByDay[d].push({start: s, end: e, course: opt.course_code, component: sec.component, section: sec.section_id, color: courseColor[opt.course_code]});
+        });
+      });
+    });
+  });
+
+  // Always show all 7 days, since a schedule can legitimately include
+  // Saturday/Sunday meetings and we don't want to hide that column.
+  const activeDays = DAYS;
+
+  const wrap = document.createElement("div");
+  wrap.className = "grid-wrap";
+
+  const header = document.createElement("div");
+  header.className = "grid-header";
+  header.style.gridTemplateColumns = `48px repeat(${activeDays.length}, 1fr)`;
+  const corner = document.createElement("div");
+  corner.className = "grid-time-corner";
+  header.appendChild(corner);
+  activeDays.forEach(d => {
+    const cell = document.createElement("div");
+    cell.textContent = d;
+    header.appendChild(cell);
+  });
+  wrap.appendChild(header);
+
+  const totalMin = maxMin - minMin;
+  const pxPerMin = 1.1;
+  const bodyHeight = totalMin * pxPerMin;
+
+  const body = document.createElement("div");
+  body.className = "grid-body";
+  body.style.gridTemplateColumns = `48px repeat(${activeDays.length}, 1fr)`;
+  body.style.height = `${bodyHeight}px`;
+
+  const timeCol = document.createElement("div");
+  timeCol.className = "grid-time-col";
+  for (let t = Math.ceil(minMin/60)*60; t <= maxMin; t += 60){
+    const label = document.createElement("div");
+    label.className = "grid-time-label";
+    label.style.top = `${(t - minMin) * pxPerMin}px`;
+    label.textContent = formatHourLabel(t);
+    timeCol.appendChild(label);
+  }
+  body.appendChild(timeCol);
+
+  activeDays.forEach(d => {
+    const col = document.createElement("div");
+    col.className = "grid-col";
+
+    for (let t = Math.ceil(minMin/60)*60; t <= maxMin; t += 60){
+      const line = document.createElement("div");
+      line.className = "hour-line";
+      line.style.top = `${(t - minMin) * pxPerMin}px`;
+      col.appendChild(line);
+    }
+
+    (meetingsByDay[d] || []).forEach(m => {
+      const block = document.createElement("div");
+      block.className = "grid-block";
+      block.style.top = `${(m.start - minMin) * pxPerMin}px`;
+      block.style.height = `${Math.max((m.end - m.start) * pxPerMin, 26)}px`;
+      block.style.background = m.color;
+      block.innerHTML = `<b>${m.course}</b>${m.component} ${m.section}`;
+      col.appendChild(block);
+    });
+
+    body.appendChild(col);
+  });
+
+  wrap.appendChild(body);
+  return wrap;
+}
+
+function formatHourLabel(totalMin){
+  const h24 = Math.floor(totalMin / 60) % 24;
+  const period = h24 >= 12 ? "PM" : "AM";
+  let h12 = h24 % 12; if (h12 === 0) h12 = 12;
+  return `${h12} ${period}`;
+}
+
+function buildTable(sched){
+  const table = document.createElement("table");
+  table.className = "sections";
+  table.innerHTML = `
+    <thead>
+      <tr><th>Course</th><th>Comp</th><th>Sect</th><th>Instructor</th><th>Meets</th><th>Credits</th></tr>
+    </thead>
+    <tbody></tbody>
+  `;
+  const tbody = table.querySelector("tbody");
+
+  sched.options.forEach(opt => {
+    opt.sections.forEach((sec, i) => {
+      const tr = document.createElement("tr");
+      const meets = sec.meetings.length
+        ? sec.meetings.map(m => m.start ? `${m.days.join("")} ${m.start}\u2013${m.end}` : "TBA").join("; ")
+        : "TBA";
+      tr.innerHTML = `
+        <td class="code">${i === 0 ? opt.course_code : ""}</td>
+        <td>${sec.component}</td>
+        <td class="mono">${sec.section_id}</td>
+        <td>${sec.instructor}</td>
+        <td class="mono">${meets}</td>
+        <td class="mono">${i === 0 ? opt.credits : ""}</td>
+      `;
+      tbody.appendChild(tr);
+    });
+  });
+
+  return table;
+}
+</script>
+</body>
+</html>

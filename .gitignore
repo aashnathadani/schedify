@@ -1,0 +1,6 @@
+cornell_data/
+__pycache__/
+*.pyc
+.venv/
+venv/
+.DS_Store
