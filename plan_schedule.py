@@ -131,6 +131,26 @@ class RequirementGroup:
     num_needed: int
 
 
+def _find_unavoidable_required_conflicts(required: list[Course]) -> list[tuple[str, str]]:
+    """
+    Checks each pair of required courses on their own -- ignoring blocked
+    time windows and the walking buffer entirely -- to see whether EVERY
+    combination of their sections conflicts. If so, there is no possible
+    schedule that includes both of them, no matter what electives or time
+    preferences are chosen, so we can name the exact pair to the user
+    instead of a generic "couldn't find anything" message.
+    """
+    conflicting_pairs = []
+    for c1, c2 in combinations(required, 2):
+        opts1 = list(enroll_group_options(c1))
+        opts2 = list(enroll_group_options(c2))
+        if not opts1 or not opts2:
+            continue
+        if all(option_conflicts(o1, o2) for o1 in opts1 for o2 in opts2):
+            conflicting_pairs.append((c1.code, c2.code))
+    return conflicting_pairs
+
+
 def plan_schedules_multi(
     required: list[Course],
     requirement_groups: list[RequirementGroup],
@@ -155,9 +175,6 @@ def plan_schedules_multi(
     cleaned_groups = []
     for group in requirement_groups:
         usable = [c for c in group.pool if valid_options_for_course(c, blocked)]
-        dropped = len(group.pool) - len(usable)
-        if dropped:
-            print(f"[{group.name}] dropping {dropped} course(s) with no options after time filtering.")
         cleaned_groups.append(RequirementGroup(name=group.name, pool=usable, num_needed=group.num_needed))
 
     group_choices = [
@@ -240,11 +257,24 @@ def plan_schedules_multi(
     if not all_results:
         print("\nNo schedules found matching all your criteria.")
         if not all_conflict_free_credit_totals:
-            print(
-                "Reason: no conflict-free combination of your required courses "
-                "(and any electives) exists at all -- check your blocked time "
-                "windows and walking buffer; they may be too strict."
-            )
+            conflicting_pairs = _find_unavoidable_required_conflicts(required)
+            if conflicting_pairs:
+                pairs_str = "; ".join(f"{a} and {b}" for a, b in conflicting_pairs)
+                print(
+                    f"Reason: {pairs_str} can't be taken together -- every "
+                    f"available section of one overlaps with every available "
+                    f"section of the other, regardless of electives, blocked "
+                    f"times, or buffer. You'll need to drop one of these "
+                    f"required courses or pick a different one to replace it."
+                )
+            else:
+                print(
+                    "Reason: your required courses don't conflict with each "
+                    "other on their own, but no combination of them (plus any "
+                    "electives) fits once your blocked time windows and "
+                    "walking buffer are applied. Try loosening one of those "
+                    "constraints."
+                )
         else:
             lo, hi = min(all_conflict_free_credit_totals), max(all_conflict_free_credit_totals)
             print(

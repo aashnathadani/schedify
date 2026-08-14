@@ -269,6 +269,32 @@
     margin:0;
     max-width:620px;
   }
+  .main-tips{
+    background:var(--brass-tint);
+    border:1px solid var(--hairline);
+    border-radius:3px;
+    padding:14px 18px;
+    margin-top:16px;
+    max-width:620px;
+  }
+  .main-tips p{
+    margin:0 0 6px;
+    color:var(--ink);
+    font-size:13px;
+    font-weight:600;
+  }
+  .main-tips ul{
+    margin:0;
+    padding-left:18px;
+    color:var(--ink-soft);
+    font-size:13px;
+  }
+  .main-tips li{
+    margin-bottom:4px;
+  }
+  .main-tips li:last-child{
+    margin-bottom:0;
+  }
 
   /* ---------- Blocked-time (when2meet-style) grid ---------- */
   .block-card{
@@ -695,7 +721,14 @@
   <main class="main">
     <div class="main-head">
       <h2>Your best-fit schedules</h2>
-      <p>Set your requirements on the left, block off times you don't want classes below, then hit Generate. Schedify ranks every conflict-free option it finds and shows you the best ones.</p>
+      <p>Set your requirements on the left, block off times you don't want classes below, then hit Generate. Schedify searches for conflict-free combinations and shows you its top 5, ordered for compactness.</p>
+      <div class="main-tips">
+        <p>Getting the most out of Schedify</p>
+        <ul>
+          <li>Not loving these five? Hit Generate again -- it re-samples, so a new batch of valid combinations usually turns up.</li>
+          <li>Spot an elective you like? Add it to your Required courses so it's locked into every future batch, then Generate again to build the rest of the schedule around it. Repeat until it's exactly right.</li>
+        </ul>
+      </div>
     </div>
 
     <div class="block-card">
@@ -728,7 +761,7 @@
 <script>
 const DAYS = ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"];
 const DAY_COLORS = ["#B31B1B","#1D4E89","#2F6B4F","#9C7A2E","#6A4C93","#00838F","#8C1414"];
-const RANK_EXPLANATION = "Ranked by how compact the schedule is: less dead time between back-to-back classes, and fewer scattered days across the week, score better. Every conflict-free schedule Schedify finds is included -- this just orders them best option first.";
+const RANK_EXPLANATION = "These options are chosen from the conflict-free schedules Schedify found, then narrowed down to the top 5 by how compact they are: less dead time between back-to-back classes, and fewer scattered days across the week, score better.";
 
 let requiredCourses = [];
 let requirementGroups = [];
@@ -1296,12 +1329,6 @@ function renderResults(data){
 function buildCard(sched, index){
   const card = document.createElement("div");
   card.className = "card";
-
-  const stamp = document.createElement("div");
-  stamp.className = "card-stamp";
-  stamp.textContent = index === 0 ? "Best fit" : `Rank ${index + 1}`;
-  stamp.title = RANK_EXPLANATION;
-  card.appendChild(stamp);
 
   const titleRow = document.createElement("div");
   titleRow.className = "card-title-row";
